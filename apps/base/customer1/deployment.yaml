@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer1-n8n
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer1-n8n
+  strategy:
+    type: Recreate
+
+  template:
+    metadata:
+      labels:
+        app: customer1-n8n
+
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: n8n
+          image: docker.n8n.io/n8nio/n8n:1.123.3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+
+          envFrom:
+            - configMapRef:
+                name: customer1-n8n-config
+            - secretRef:
+                name: customer1-n8n-env
+
+          ports:
+            - containerPort: 3008
+              protocol: TCP
+
+          volumeMounts:
+            - mountPath: /home/node/.n8n
+              name: n8n-data
+            - mountPath: /mnt/secrets-store
+              name: secrets-store
+              readOnly: true
+
+      restartPolicy: Always
+
+      volumes:
+        - name: n8n-data
+          persistentVolumeClaim:
+            claimName: customer1-n8n-data
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: customer1-secrets

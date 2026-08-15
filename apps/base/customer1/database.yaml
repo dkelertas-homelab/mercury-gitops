@@ -1,0 +1,16 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: customer1-db
+spec:
+  instances: 3
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret:
+        name: customer1-db-credentials
+
+  storage:
+    size: 1Gi
