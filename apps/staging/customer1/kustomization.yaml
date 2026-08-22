@@ -9,10 +9,10 @@ patches:
     patch: |-
       - op: replace
         path: /spec/parameters/userAssignedIdentityID
-        value: "ba750c78-ea9e-4964-acab-df8e9351d0c6"
+        value: "2a28bcba-7bcb-492f-b034-87d76836051b"
       - op: replace
         path: /spec/parameters/tenantId
-        value: "6c0d1498-a808-4d41-a865-fdebeb412738"
+        value: "480dcc85-c1a6-45ad-b7f9-d4b3e55c16f4"
   - target:
       kind: ObjectStore
       name: customer1-objectstore
