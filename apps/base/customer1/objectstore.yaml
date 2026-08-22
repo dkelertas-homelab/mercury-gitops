@@ -4,7 +4,7 @@ metadata:
   name: customer1-objectstore
 spec:
   configuration:
-    destinationPath: "https://STORAGE_ACCOUNT.blob.core.windows.net/customer1"
+    destinationPath: "https://dllsmercurybakstaging.blob.core.windows.net/customer1"
     azureCredentials:
       storageAccount:
         name: customer1-backup-creds

@@ -8,10 +8,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - customer1.mercury.mischavandenburg.net
+        - customer1.mercury.d11s.space
       secretName: customer1-tls
   rules:
-    - host: customer1.mercury.mischavandenburg.net
+    - host: customer1.mercury.d11s.space
       http:
         paths:
           - path: /
