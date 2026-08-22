@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   - traefik
   - cert-manager
-  #- cnpg
+  - cnpg
