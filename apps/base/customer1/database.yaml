@@ -1,24 +1,25 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
+  # name: customer1-db
   name: customer1-db
 spec:
   instances: 3
 
-  #bootstrap:
-    #initdb:
-      #database: app
-      #owner: app
-      #secret:
-        #name: customer1-db-credentials
-
   bootstrap:
-    recovery:
+    initdb:
       database: app
       owner: app
-      source: source
       secret:
         name: customer1-db-credentials
+
+  #bootstrap:
+    #recovery:
+      #database: app
+      #owner: app
+      #source: source
+      #secret:
+        #name: customer1-db-credentials
 
   externalClusters:
     - name: source
