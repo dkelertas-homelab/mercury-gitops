@@ -4,7 +4,7 @@ namespace: customer1
 resources:
   - namespace.yaml
   - secrets.yaml
-  - database.yaml
+  #- database.yaml
   - objectstore.yaml
   - scheduled-backup.yaml
   - configmap.yaml
