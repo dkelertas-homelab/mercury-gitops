@@ -6,7 +6,7 @@ resources:
   - secrets.yaml
   #- database.yaml
   - objectstore.yaml
-  - scheduled-backup.yaml
+  #- scheduled-backup.yaml
   - configmap.yaml
   - storage.yaml
   - deployment.yaml
