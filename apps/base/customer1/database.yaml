@@ -1,33 +1,33 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  # name: customer1-db
-  name: customer1-db2
+  name: customer1-db
+  # name: customer1-db2
 spec:
   instances: 3
 
-  #bootstrap:
-    #initdb:
-      #database: app
-      #owner: app
-      #secret:
-        #name: customer1-db-credentials
-
   bootstrap:
-    recovery:
+    initdb:
       database: app
       owner: app
-      source: source
       secret:
         name: customer1-db-credentials
 
-  externalClusters:
-    - name: source
-      plugin:
-        name: barman-cloud.cloudnative-pg.io
-        parameters:
-          barmanObjectName: customer1-objectstore
-          serverName: customer1-db
+  # bootstrap:
+  #   recovery:
+  #     database: app
+  #     owner: app
+  #     source: source
+  #     secret:
+  #       name: customer1-db-credentials
+  #
+  # externalClusters:
+  #   - name: source
+  #     plugin:
+  #       name: barman-cloud.cloudnative-pg.io
+  #       parameters:
+  #         barmanObjectName: customer1-objectstore
+  #         serverName: customer1-db
 
   storage:
     size: 1Gi
