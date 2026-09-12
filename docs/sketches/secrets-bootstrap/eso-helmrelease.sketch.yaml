@@ -1,0 +1,36 @@
+# SKETCH — do not apply via Flux until SecretStore + ExternalSecrets are ready.
+# Suggested path once enabled: infrastructure/controllers/base/external-secrets/
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: external-secrets
+  namespace: flux-system
+spec:
+  interval: 24h
+  url: https://charts.external-secrets.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-secrets
+  namespace: flux-system
+spec:
+  interval: 30m
+  targetNamespace: external-secrets
+  releaseName: external-secrets
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: external-secrets
+      version: "0.16.2" # pin when enabling; check latest
+      sourceRef:
+        kind: HelmRepository
+        name: external-secrets
+        namespace: flux-system
+      interval: 12h
+  values:
+    installCRDs: true
+    # Prefer Workload Identity on AKS; wire serviceAccount.annotations when enabling.

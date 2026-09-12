@@ -1,0 +1,33 @@
+# SKETCH — example Flux Kustomization layering (lives in cluster bootstrap / workflows,
+# not necessarily in this repo). Shows ordering intent only.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mercury-staging-customer1-secrets
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./apps/staging/customer1-secrets  # would contain SPC + ExternalSecrets OR sync Job
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: mercury-staging
+  wait: true
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: mercury-staging-apps
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./apps/staging
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: mercury-staging
+  dependsOn:
+    - name: mercury-staging-customer1-secrets
+  wait: true
+  timeout: 10m
