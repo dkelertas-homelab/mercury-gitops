@@ -1,0 +1,49 @@
+# SKETCH — CSI sync Job stopgap. Apply SPC first; do not start Cluster until Job succeeds.
+# Requires correct SecretProviderClass userAssignedIdentityID (AKS KV secrets provider).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: customer1-secrets-sync
+  namespace: customer1
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: customer1-secrets-sync
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: wait
+          image: busybox:1.36
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              echo "Waiting for CSI secretObjects to sync..."
+              # Mount triggers sync; kubelet also creates secretObjects from SPC.
+              i=0
+              while [ "$i" -lt 60 ]; do
+                if [ -f /mnt/secrets-store/customer1-db-user ]; then
+                  echo "KV objects visible in mount; secretObjects should exist."
+                  ls -la /mnt/secrets-store || true
+                  exit 0
+                fi
+                i=$((i + 1))
+                sleep 2
+              done
+              echo "Timed out waiting for secrets mount" >&2
+              exit 1
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets-store
+              readOnly: true
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: customer1-secrets

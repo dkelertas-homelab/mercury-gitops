@@ -5,6 +5,11 @@ metadata:
   namespace: flux-system
 spec:
   interval: 30m
+  # Wait for cert-manager webhook/CRDs and CNPG operator before installing
+  # Certificates/TLS secrets the chart creates (avoids the fresh-cluster race).
+  dependsOn:
+    - name: cert-manager
+    - name: cnpg
   targetNamespace: cnpg-system
   releaseName: cnpg-plugin-barman-cloud
   chart:
@@ -16,3 +21,9 @@ spec:
         name: cnpg
         namespace: flux-system
       interval: 12h
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
