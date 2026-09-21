@@ -16,17 +16,54 @@ spec:
         app: customer1-n8n
 
     spec:
+      # Pod-level security context (PSS restricted compliance)
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: n8n
           image: docker.n8n.io/n8nio/n8n:2.35.3
 
+          # Container-level security context (PSS restricted compliance)
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Resource management
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 3008
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3008
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
 
           envFrom:
             - configMapRef:
@@ -44,6 +81,11 @@ spec:
             - mountPath: /mnt/secrets-store
               name: secrets-store
               readOnly: true
+            # Required for readOnlyRootFilesystem
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /home/node/.cache
+              name: cache
 
       restartPolicy: Always
 
@@ -57,3 +99,8 @@ spec:
             readOnly: true
             volumeAttributes:
               secretProviderClass: customer1-secrets
+        # EmptyDir volumes for writable paths
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}

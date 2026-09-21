@@ -1,0 +1,44 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: customer1-n8n
+spec:
+  endpointSelector:
+    matchLabels:
+      app: customer1-n8n
+
+  ingress:
+    # Allow from Traefik ingress controller
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: traefik
+      toPorts:
+        - ports:
+            - port: "3008"
+              protocol: TCP
+
+  egress:
+    # Allow to CNPG database
+    - toEndpoints:
+        - matchLabels:
+            cnpg.io/cluster: customer1-db
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    # Allow DNS resolution
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+    # Allow external HTTPS (for webhooks, integrations)
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
