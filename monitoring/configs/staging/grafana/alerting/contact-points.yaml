@@ -17,7 +17,7 @@ data:
             settings:
               bottoken: $TELEGRAM_BOT_TOKEN
               chatid: "8218360298"
-    me:working_dir: dirssage: |
+              message: |
                 {{ if eq .Status "firing" }}🔥 FIRING{{ else if eq .Status "resolved" }}✅ RESOLVED{{ else }}⚠️ {{ .Status | toUpper }}{{ end }}
 
                 {{ range .Alerts }}
