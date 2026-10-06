@@ -1,0 +1,28 @@
+# yamllint config, used locally (`yamllint .`) and in CI.
+# Starts from the defaults and relaxes the rules that fight normal
+# Kubernetes / Helm / GitHub Actions YAML.
+extends: default
+
+ignore: |
+  .git/
+  rendered/
+
+rules:
+  # Flux/kustomize don't need `---` at the top of every file
+  document-start: disable
+  # long PromQL expressions and URLs are fine
+  line-length: disable
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  truthy:
+    allowed-values: ["true", "false"]
+    # GitHub Actions uses `on:` as a key
+    check-keys: false
+  indentation:
+    spaces: 2
+    indent-sequences: consistent
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1
