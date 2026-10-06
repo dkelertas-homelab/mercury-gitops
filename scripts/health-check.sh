@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2317,SC2329  # helpers are invoked indirectly via check()
 # Post-deploy health checks for a Mercury cluster. Runs the same in CI
-# (.github/workflows/verify.yml) and locally against your current kubectl context:
+# (.github/workflows/verify.yml) and locally against the current kubectl context:
 #
 #   az aks get-credentials -g rg-cloud-course-aks -n mercury-staging
 #   kubelogin convert-kubeconfig -l azurecli

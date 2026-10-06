@@ -99,7 +99,7 @@ scripts/health-check.sh                # against the current kubectl context
 
 ## Bootstrap
 
-You don't apply this repo by hand. Flux is installed and configured by Terraform:
+I don't apply this repo by hand. Terraform installs and configures Flux:
 
 ```bash
 # in mercury-workflows
@@ -122,7 +122,7 @@ After **recreating the cluster**, update the Key Vault CSI identity in `apps/sta
 - **Secrets chicken-and-egg.** Key Vault CSI only writes Kubernetes Secrets when a pod mounts the volume. CNPG needs `customer1-db-credentials` before `initdb`, but the only mounter is n8n, which needs the database. Fix options are in `docs/sketches/secrets-bootstrap/`.
 - **A stale CSI identity means `Identity not found`.** Every new AKS cluster gets a new Secrets Provider identity, and the overlay patch must follow it.
 - **Controllers need ordering too.** On a fresh cluster the Barman plugin chart raced cert-manager's webhook and CRDs. HelmRelease `dependsOn` plus retries solved it.
-- **Chart defaults can surprise you.** Traefik's IngressClass name, `traefik-traefik`, broke Ingress matching until I overrode it.
+- **Chart defaults can bite.** Traefik's IngressClass name, `traefik-traefik`, broke Ingress matching until I overrode it.
 - **Restores go to a new cluster name.** CNPG recovers into a new `Cluster`, so app config (DB host) has to move with it. Plan the cut-over.
 - **Flux fixes manual changes.** Suspend Kustomizations before chaos-testing alerts (e.g. scaling n8n to 0), or Flux undoes the test.
 
