@@ -10,7 +10,7 @@ The Flux GitOps repo for my "Mercury" AKS cluster. It runs n8n for each tenant o
 
 ## What this is
 
-The Terraform in **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)** (private repo) creates the AKS cluster (Australia East) and installs the AKS **Flux extension**. Flux pulls this repo over an SSH deploy key (branch `master`) and reconciles:
+The Terraform in **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)** creates the AKS cluster (Australia East) and installs the AKS **Flux extension**. Flux pulls this repo over an SSH deploy key (branch `master`) and reconciles:
 
 - **Infrastructure controllers**: Traefik (`37.4.0`), cert-manager (`v1.19.1`), the CloudNativePG operator (`0.26.1`) and the Barman Cloud plugin (`0.3.1`)
 - **Infrastructure configs**: Let's Encrypt staging and prod `ClusterIssuer`s (HTTP-01 through Traefik)
@@ -52,7 +52,7 @@ flowchart TB
   mcfg --> graf[Grafana alert rules] --> tg[Telegram]
 ```
 
-The Kustomization chain and its `dependsOn` order are declared in Terraform (see `mercury-tf/main.tf` in mercury-workflows). Ordering *inside* `infra-controllers` uses HelmRelease `dependsOn`.
+The Kustomization chain and its `dependsOn` order are declared in Terraform (see [`mercury-tf/main.tf`](https://github.com/dkelertas-homelab/mercury-workflows/blob/master/mercury-tf/main.tf) in mercury-workflows). Ordering *inside* `infra-controllers` uses HelmRelease `dependsOn`.
 
 ## Repo layout
 
@@ -132,6 +132,6 @@ No credentials live in this repo. DB passwords, the blob SAS token, the Grafana 
 
 ## Related
 
-- **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)** (private): the Terraform that builds the AKS cluster and wires Flux to this repo.
+- **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)**: the Terraform that builds the AKS cluster and wires Flux to this repo.
 - **[d11s.space](https://d11s.space)**: my blog, with homelab and platform write-ups.
 - **KubeCraft** course by Mischa van den Burg: the foundation this is built on.
