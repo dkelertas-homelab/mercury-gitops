@@ -22,6 +22,7 @@ env:
   KUBECONFORM_VERSION: "0.8.0"
   # matches the AKS minor version in mercury-workflows (1.34.x)
   K8S_VERSION: "1.34.0"
+  GITLEAKS_VERSION: "8.30.1"
 
 jobs:
   yamllint:
@@ -36,6 +37,22 @@ jobs:
       - name: Lint all YAML
         # --format github turns findings into inline PR annotations
         run: yamllint --strict --format github .
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # full history, so a secret committed then deleted is still caught
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-tools
+        with:
+          gitleaks-version: ${{ env.GITLEAKS_VERSION }}
+
+      - name: Scan git history for secrets
+        run: gitleaks git --redact --verbose --no-banner .
 
   discover:
     name: discover overlays
