@@ -4,6 +4,10 @@ The Flux GitOps repo for my "Mercury" AKS cluster. It runs n8n for each tenant o
 
 > **Built on KubeCraft.** The layout and most manifests come from **KubeCraft's _DevOps OS Part 2 / Kubernetes in the Cloud_** course by **[Mischa van den Burg](https://github.com/mischavandenburg)**. I adapted it for my own cluster and domain and have kept iterating on it since. My changes are listed in [What I added / adapted](#what-i-added--adapted).
 
+[![Validate](https://github.com/dkelertas-homelab/mercury-gitops/actions/workflows/validate.yml/badge.svg?branch=master)](https://github.com/dkelertas-homelab/mercury-gitops/actions/workflows/validate.yml)
+[![Deploy dev](https://github.com/dkelertas-homelab/mercury-gitops/actions/workflows/deploy-dev.yml/badge.svg)](https://github.com/dkelertas-homelab/mercury-gitops/actions/workflows/deploy-dev.yml)
+[![Deploy prod](https://github.com/dkelertas-homelab/mercury-gitops/actions/workflows/deploy-prod.yml/badge.svg)](https://github.com/dkelertas-homelab/mercury-gitops/actions/workflows/deploy-prod.yml)
+
 ## What this is
 
 The Terraform in **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)** (private repo) creates the AKS cluster (Australia East) and installs the AKS **Flux extension**. Flux pulls this repo over an SSH deploy key (branch `master`) and reconciles:
@@ -61,6 +65,9 @@ The Kustomization chain and its `dependsOn` order are declared in Terraform (see
 | `apps/staging/` | Overlay that patches in the Key Vault identity and tenant, backup destination URL, and `d11s.space` hostnames. |
 | `monitoring/controllers/` | kube-prometheus-stack HelmRelease (staging pins `80.2.0`; the base is staged at `91.3.0` for a later upgrade), values via `configMapGenerator`, Grafana SecretProviderClass. |
 | `monitoring/configs/staging/grafana/alerting/` | Contact point, notification policy and alert rules: CNPG operator/plugin, backups, WAL archiving, replication lag, long transactions, n8n down, node/pod health. |
+| `.github/` | GitHub Actions: `Validate` (PRs), `Deploy dev` / `Deploy prod`, reusable `Verify`, and a `setup-tools` composite action. |
+| `scripts/` | The CI logic, runnable locally: `validate.sh`, `render.sh`, `health-check.sh`, `flux-reconcile.sh`, `list-overlays.sh`. |
+| `docs/ci-cd-walkthrough.md` | My ADO → GitHub Actions notes for this repo, plus the remaining one-time setup. |
 | `docs/sketches/secrets-bootstrap/` | Design notes and **not-applied** sketch YAMLs for fixing secret bootstrap order (ESO vs sync Job). |
 
 ## What I added / adapted
@@ -76,6 +83,19 @@ All of this is visible in `git log`:
 - **Workload hardening**: namespace PSS `restricted`, non-root UID 1000, `seccompProfile: RuntimeDefault`, read-only root FS with `emptyDir` for `/tmp` and cache, `drop: [ALL]`, requests/limits, liveness/readiness on `/healthz`.
 - **Cilium policy**: n8n accepts traffic only from the `traefik` namespace on 3008. Egress is limited to its CNPG cluster on 5432, kube-dns on 53/UDP and the internet on 443.
 - **Alerting**: Grafana alert rules sent to my own Telegram chat. The bot token comes from Key Vault, never from Git.
+
+## CI/CD
+
+GitHub Actions validates every change before Flux sees it, then checks the cluster afterwards. Full notes, including the Azure DevOps → GitHub mapping and the remaining setup: **[docs/ci-cd-walkthrough.md](docs/ci-cd-walkthrough.md)**.
+
+- **Validate** (every PR into `dev`/`master`): yamllint, shellcheck, gitleaks over full history, `kustomize build` + kubeconform (with Flux/CNPG/cert-manager/Cilium CRD schemas) for every overlay, and rendered manifests per environment published as a build artifact.
+- **Environments:** `dev` = the `*/staging` overlays on `mercury-staging`. `prod` = the `*/production` overlays on `mercury-production` (not built yet). Branches `dev` → `master` are the promotion path, and `prod` gets an approval gate.
+- **Deploy = merge.** Flux pulls. The deploy workflows only trigger a Flux reconcile and then run `scripts/health-check.sh`: Flux and HelmReleases Ready, Deployments Available, CNPG healthy, HTTPS + TLS on the live hostnames. They log in with Azure OIDC (no secrets) and skip cleanly while the clusters are stopped.
+
+```bash
+yamllint . && scripts/validate.sh      # same checks as CI, locally
+scripts/health-check.sh                # against the current kubectl context
+```
 
 ## Bootstrap
 
@@ -108,7 +128,7 @@ After **recreating the cluster**, update the Key Vault CSI identity in `apps/sta
 
 ## Security note
 
-No credentials live in this repo. DB passwords, the blob SAS token, the Grafana admin password and the Telegram bot token are all in Azure Key Vault, delivered by the CSI driver. Tenant, managed-identity and Telegram chat IDs appear in overlays; they're identifiers, not secrets. The sketch YAMLs in `docs/` aren't referenced by any `kustomization.yaml`.
+No credentials live in this repo. DB passwords, the blob SAS token, the Grafana admin password and the Telegram bot token are all in Azure Key Vault, delivered by the CSI driver. Tenant, managed-identity and Telegram chat IDs appear in overlays; they're identifiers, not secrets. The sketch YAMLs in `docs/` aren't referenced by any `kustomization.yaml`. gitleaks scans the full history on every PR.
 
 ## Related
 
