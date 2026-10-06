@@ -18,6 +18,7 @@ concurrency:
 
 env:
   YAMLLINT_VERSION: "1.38.0"
+  KUSTOMIZE_VERSION: "5.8.2"
 
 jobs:
   yamllint:
@@ -32,3 +33,42 @@ jobs:
       - name: Lint all YAML
         # --format github turns findings into inline PR annotations
         run: yamllint --strict --format github .
+
+  discover:
+    name: discover overlays
+    runs-on: ubuntu-latest
+    outputs:
+      overlays: ${{ steps.find.outputs.overlays }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Find Flux entrypoints (*/staging, */production)
+        id: find
+        run: |
+          overlays=$(scripts/list-overlays.sh --json)
+          echo "$overlays" | jq .
+          echo "overlays=$overlays" >> "$GITHUB_OUTPUT"
+
+  kustomize:
+    name: kustomize build (${{ matrix.overlay.path }})
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        overlay: ${{ fromJSON(needs.discover.outputs.overlays) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-tools
+        with:
+          kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
+
+      - name: kustomize build
+        env:
+          OVERLAY: ${{ matrix.overlay.path }}
+        run: |
+          mkdir -p rendered
+          out="rendered/${OVERLAY//\//_}.yaml"
+          kustomize build "$OVERLAY" > "$out"
+          echo "Rendered $(grep -c '^kind:' "$out") resources from $OVERLAY"
