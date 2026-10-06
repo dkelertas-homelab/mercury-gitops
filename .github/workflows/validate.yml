@@ -59,6 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       overlays: ${{ steps.find.outputs.overlays }}
+      envs: ${{ steps.find.outputs.envs }}
     steps:
       - uses: actions/checkout@v7
 
@@ -68,6 +69,7 @@ jobs:
           overlays=$(scripts/list-overlays.sh --json)
           echo "$overlays" | jq .
           echo "overlays=$overlays" >> "$GITHUB_OUTPUT"
+          echo "envs=$(scripts/list-overlays.sh --envs)" >> "$GITHUB_OUTPUT"
 
   manifests:
     name: build + validate (${{ matrix.overlay.path }})
@@ -92,3 +94,50 @@ jobs:
         run: |
           mkdir -p "$KUBECONFORM_CACHE"
           scripts/validate.sh "$OVERLAY"
+
+  # "Build" stage: render each environment's manifests and publish them as an
+  # artifact (what Flux will apply, plus an index of images/charts/hosts).
+  render:
+    name: render (${{ matrix.env }})
+    needs: [discover, manifests]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: ${{ fromJSON(needs.discover.outputs.envs) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-tools
+        with:
+          kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
+
+      - name: Render manifests
+        env:
+          ENV_NAME: ${{ matrix.env }}
+        run: |
+          yq --version   # preinstalled on GitHub-hosted Ubuntu runners
+          scripts/render.sh "$ENV_NAME"
+          cat "rendered/${ENV_NAME}/index.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish rendered manifests
+        uses: actions/upload-artifact@v7
+        with:
+          name: rendered-${{ matrix.env }}-${{ github.sha }}
+          path: rendered/${{ matrix.env }}/
+          retention-days: 30
+          if-no-files-found: error
+
+  # Single required check for branch protection, so matrix legs can come and
+  # go without editing the protection rule.
+  result:
+    name: validate
+    if: always()
+    needs: [yamllint, gitleaks, discover, manifests, render]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All validation jobs passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          jq -e 'all(. == "success")' <<< "$RESULTS"
