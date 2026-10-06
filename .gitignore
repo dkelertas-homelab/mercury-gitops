@@ -1,0 +1,15 @@
+# Rendered manifests from `kustomize build` (CI publishes these as artifacts)
+rendered/
+
+# Local kubeconfigs / env files - never commit cluster credentials
+kubeconfig
+*.kubeconfig
+.env
+.env.*
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
