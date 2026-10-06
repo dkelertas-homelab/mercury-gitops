@@ -59,7 +59,7 @@ all=("${outdir}"/*.yaml)
     yq e 'select(.kind == "Ingress") | .spec.rules[].host' "${all[@]}"
     # ingresses created by Helm charts from values.yaml ConfigMaps (e.g. Grafana)
     yq e 'select(.kind == "ConfigMap" and has("data") and .data | has("values.yaml")) | .data["values.yaml"] | from_yaml | .. | select(tag == "!!map" and has("ingress")) | .ingress.hosts[]' "${all[@]}"
-  } | grep -v '^---$' | sort -u | sed 's/^/- /'
+  } | { grep -v '^---$' || true; } | sort -u | sed 's/^/- /'
 } >> "$index"
 
 echo "Rendered ${#overlays[@]} overlays for ${env_name} into ${outdir}"
