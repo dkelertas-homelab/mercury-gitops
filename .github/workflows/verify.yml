@@ -1,0 +1,100 @@
+# Reusable post-deploy verification: Azure OIDC login -> AKS credentials ->
+# (optional) Flux reconcile -> scripts/health-check.sh.
+# Called by deploy-dev.yml / deploy-prod.yml, and can be run by hand.
+# ADO equivalent: a deployment-job template (stages/verify.yml) that targets an environment.
+name: Verify
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub Environment (dev | prod)
+        type: string
+        required: true
+      reconcile:
+        description: Trigger a Flux reconcile before checking
+        type: boolean
+        default: false
+      expected_revision:
+        description: Commit SHA Flux should have pulled (warning only)
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to verify
+        type: choice
+        options: [dev, prod]
+        default: dev
+      reconcile:
+        description: Trigger a Flux reconcile before checking
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC token for azure/login
+
+jobs:
+  verify:
+    name: verify (${{ inputs.environment }})
+    # Skip cleanly until the one-time OIDC setup is done (see docs/ci-cd-walkthrough.md)
+    if: vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && vars.AZURE_SUBSCRIPTION_ID != ''
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    env:
+      # Environment-level vars override these defaults:
+      #   dev  -> mercury-staging    in rg-cloud-course-aks
+      #   prod -> mercury-production in rg-cloud-course-aks-prod
+      RESOURCE_GROUP: ${{ vars.AKS_RESOURCE_GROUP || (inputs.environment == 'prod' && 'rg-cloud-course-aks-prod' || 'rg-cloud-course-aks') }}
+      CLUSTER_NAME: ${{ vars.AKS_CLUSTER_NAME || (inputs.environment == 'prod' && 'mercury-production' || 'mercury-staging') }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Azure login (OIDC federated credential, no secrets)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Is the cluster running?
+        id: cluster
+        run: |
+          if ! state=$(az aks show -g "$RESOURCE_GROUP" -n "$CLUSTER_NAME" --query powerState.code -o tsv 2>err.txt); then
+            if grep -qiE 'ResourceNotFound|ResourceGroupNotFound|could not be found' err.txt; then
+              state="NotFound"
+            else
+              cat err.txt; exit 1   # auth / RBAC problems should fail loudly
+            fi
+          fi
+          echo "${CLUSTER_NAME} power state: ${state}"
+          if [[ "$state" == "Running" ]]; then
+            echo "running=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Verify skipped::${CLUSTER_NAME} is ${state}. Clusters are stopped to save money; start it and re-run this workflow."
+            echo "running=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Get AKS credentials (Entra ID via kubelogin)
+        if: steps.cluster.outputs.running == 'true'
+        run: |
+          sudo az aks install-cli --only-show-errors > /dev/null
+          az aks get-credentials -g "$RESOURCE_GROUP" -n "$CLUSTER_NAME" --overwrite-existing --only-show-errors
+          kubelogin convert-kubeconfig -l azurecli
+          kubectl version
+
+      - name: Setup Flux CLI
+        if: steps.cluster.outputs.running == 'true'
+        uses: fluxcd/flux2/action@v2.9.6
+
+      - name: Reconcile Flux
+        if: steps.cluster.outputs.running == 'true' && inputs.reconcile
+        run: scripts/flux-reconcile.sh
+
+      - name: Health check
+        if: steps.cluster.outputs.running == 'true'
+        env:
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
+        run: scripts/health-check.sh all
