@@ -1,0 +1,34 @@
+# PR validation for the GitOps repo.
+# ADO equivalent: a build-validation pipeline wired into branch policies.
+name: Validate
+
+on:
+  pull_request:
+    branches: [master, dev]
+  push:
+    branches: [master, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YAMLLINT_VERSION: "1.38.0"
+
+jobs:
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install yamllint
+        run: pipx install "yamllint==${YAMLLINT_VERSION}"
+
+      - name: Lint all YAML
+        # --format github turns findings into inline PR annotations
+        run: yamllint --strict --format github .
