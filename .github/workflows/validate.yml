@@ -19,6 +19,9 @@ concurrency:
 env:
   YAMLLINT_VERSION: "1.38.0"
   KUSTOMIZE_VERSION: "5.8.2"
+  KUBECONFORM_VERSION: "0.8.0"
+  # matches the AKS minor version in mercury-workflows (1.34.x)
+  K8S_VERSION: "1.34.0"
 
 jobs:
   yamllint:
@@ -49,8 +52,8 @@ jobs:
           echo "$overlays" | jq .
           echo "overlays=$overlays" >> "$GITHUB_OUTPUT"
 
-  kustomize:
-    name: kustomize build (${{ matrix.overlay.path }})
+  manifests:
+    name: build + validate (${{ matrix.overlay.path }})
     needs: discover
     runs-on: ubuntu-latest
     strategy:
@@ -63,12 +66,12 @@ jobs:
       - uses: ./.github/actions/setup-tools
         with:
           kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
+          kubeconform-version: ${{ env.KUBECONFORM_VERSION }}
 
-      - name: kustomize build
+      - name: kustomize build + kubeconform
         env:
           OVERLAY: ${{ matrix.overlay.path }}
+          KUBECONFORM_CACHE: ${{ runner.temp }}/kubeconform-cache
         run: |
-          mkdir -p rendered
-          out="rendered/${OVERLAY//\//_}.yaml"
-          kustomize build "$OVERLAY" > "$out"
-          echo "Rendered $(grep -c '^kind:' "$out") resources from $OVERLAY"
+          mkdir -p "$KUBECONFORM_CACHE"
+          scripts/validate.sh "$OVERLAY"
