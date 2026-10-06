@@ -112,9 +112,12 @@ jobs:
           kustomize-version: ${{ env.KUSTOMIZE_VERSION }}
 
       - name: Render manifests
+        env:
+          ENV_NAME: ${{ matrix.env }}
         run: |
-          scripts/render.sh "${{ matrix.env }}"
-          cat "rendered/${{ matrix.env }}/index.md" >> "$GITHUB_STEP_SUMMARY"
+          yq --version   # preinstalled on GitHub-hosted Ubuntu runners
+          scripts/render.sh "$ENV_NAME"
+          cat "rendered/${ENV_NAME}/index.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish rendered manifests
         uses: actions/upload-artifact@v7
