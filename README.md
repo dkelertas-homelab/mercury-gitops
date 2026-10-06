@@ -10,7 +10,7 @@ The Flux GitOps repo for my "Mercury" AKS cluster. It runs n8n for each tenant o
 
 ## What this is
 
-The Terraform in **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)** (private repo) creates the AKS cluster (Australia East) and installs the AKS **Flux extension**. Flux pulls this repo over an SSH deploy key (branch `master`) and reconciles:
+The Terraform in **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)** creates the AKS cluster (Australia East) and installs the AKS **Flux extension**. Flux pulls this repo over an SSH deploy key (branch `master`) and reconciles:
 
 - **Infrastructure controllers**: Traefik (`37.4.0`), cert-manager (`v1.19.1`), the CloudNativePG operator (`0.26.1`) and the Barman Cloud plugin (`0.3.1`)
 - **Infrastructure configs**: Let's Encrypt staging and prod `ClusterIssuer`s (HTTP-01 through Traefik)
@@ -52,7 +52,7 @@ flowchart TB
   mcfg --> graf[Grafana alert rules] --> tg[Telegram]
 ```
 
-The Kustomization chain and its `dependsOn` order are declared in Terraform (see `mercury-tf/main.tf` in mercury-workflows). Ordering *inside* `infra-controllers` uses HelmRelease `dependsOn`.
+The Kustomization chain and its `dependsOn` order are declared in Terraform (see [`mercury-tf/main.tf`](https://github.com/dkelertas-homelab/mercury-workflows/blob/master/mercury-tf/main.tf) in mercury-workflows). Ordering *inside* `infra-controllers` uses HelmRelease `dependsOn`.
 
 ## Repo layout
 
@@ -99,7 +99,7 @@ scripts/health-check.sh                # against the current kubectl context
 
 ## Bootstrap
 
-You don't apply this repo by hand. Flux is installed and configured by Terraform:
+I don't apply this repo by hand. Terraform installs and configures Flux:
 
 ```bash
 # in mercury-workflows
@@ -122,7 +122,7 @@ After **recreating the cluster**, update the Key Vault CSI identity in `apps/sta
 - **Secrets chicken-and-egg.** Key Vault CSI only writes Kubernetes Secrets when a pod mounts the volume. CNPG needs `customer1-db-credentials` before `initdb`, but the only mounter is n8n, which needs the database. Fix options are in `docs/sketches/secrets-bootstrap/`.
 - **A stale CSI identity means `Identity not found`.** Every new AKS cluster gets a new Secrets Provider identity, and the overlay patch must follow it.
 - **Controllers need ordering too.** On a fresh cluster the Barman plugin chart raced cert-manager's webhook and CRDs. HelmRelease `dependsOn` plus retries solved it.
-- **Chart defaults can surprise you.** Traefik's IngressClass name, `traefik-traefik`, broke Ingress matching until I overrode it.
+- **Chart defaults can bite.** Traefik's IngressClass name, `traefik-traefik`, broke Ingress matching until I overrode it.
 - **Restores go to a new cluster name.** CNPG recovers into a new `Cluster`, so app config (DB host) has to move with it. Plan the cut-over.
 - **Flux fixes manual changes.** Suspend Kustomizations before chaos-testing alerts (e.g. scaling n8n to 0), or Flux undoes the test.
 
@@ -132,6 +132,6 @@ No credentials live in this repo. DB passwords, the blob SAS token, the Grafana 
 
 ## Related
 
-- **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)** (private): the Terraform that builds the AKS cluster and wires Flux to this repo.
+- **[mercury-workflows](https://github.com/dkelertas-homelab/mercury-workflows)**: the Terraform that builds the AKS cluster and wires Flux to this repo.
 - **[d11s.space](https://d11s.space)**: my blog, with homelab and platform write-ups.
 - **KubeCraft** course by Mischa van den Burg: the foundation this is built on.
