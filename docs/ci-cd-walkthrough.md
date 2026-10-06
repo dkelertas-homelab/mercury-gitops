@@ -184,7 +184,7 @@ gh api -X PUT "repos/$REPO/environments/prod" --input - <<'JSON'
 JSON
 ```
 
-**6. Terraform: point each cluster's Flux at its branch** (in `mercury-workflows/mercury-tf/main.tf`). Today `mercury-staging` tracks `master`. The dev/prod model needs:
+**6. Terraform: point each cluster's Flux at its branch** (in [`mercury-workflows/mercury-tf/main.tf`](https://github.com/dkelertas-homelab/mercury-workflows/blob/master/mercury-tf/main.tf)). Today `mercury-staging` tracks `master`. The dev/prod model needs:
 
 ```hcl
 resource "azurerm_kubernetes_flux_configuration" "main" {   # mercury-staging = dev
