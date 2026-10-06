@@ -1,0 +1,64 @@
+# prod = production overlays (*/production) on AKS cluster mercury-production.
+# GitOps: Flux pulls the merge itself; this workflow nudges Flux and then
+# verifies the result. ADO equivalent: a deployment stage targeting the `prod` environment
+# with approvals. Required reviewers live on the GitHub Environment `prod`.
+name: Deploy prod
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+    inputs:
+      reconcile:
+        description: Trigger a Flux reconcile before verifying
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Azure OIDC variables configured and prod overlays present?
+        id: check
+        env:
+          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          if [[ -z "$CLIENT_ID" || -z "$TENANT_ID" || -z "$SUBSCRIPTION_ID" ]]; then
+            echo "::notice title=Deploy prod skipped::AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID repo variables are not set (see docs/ci-cd-walkthrough.md)."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          elif ! scripts/list-overlays.sh --envs | jq -e 'index("prod")' > /dev/null; then
+            echo "::notice title=Deploy prod skipped::No */production overlays in the repo yet, so there's nothing for prod to verify."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Waits for the `prod` environment's required reviewers (when configured)
+  # before touching the cluster: the GitHub version of an ADO approval check.
+  deploy:
+    name: reconcile + verify
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    uses: ./.github/workflows/verify.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      environment: prod
+      reconcile: ${{ github.event_name == 'push' || inputs.reconcile }}
+      expected_revision: ${{ github.sha }}
