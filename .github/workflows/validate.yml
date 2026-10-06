@@ -38,6 +38,18 @@ jobs:
         # --format github turns findings into inline PR annotations
         run: yamllint --strict --format github .
 
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Lint scripts
+        # shellcheck is preinstalled on GitHub-hosted Ubuntu runners
+        run: |
+          shellcheck --version
+          shellcheck scripts/*.sh
+
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
@@ -132,7 +144,7 @@ jobs:
   result:
     name: validate
     if: always()
-    needs: [yamllint, gitleaks, discover, manifests, render]
+    needs: [yamllint, shellcheck, gitleaks, discover, manifests, render]
     runs-on: ubuntu-latest
     steps:
       - name: All validation jobs passed
