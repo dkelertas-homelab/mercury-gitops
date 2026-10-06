@@ -1,0 +1,56 @@
+# dev = staging overlays (*/staging) on AKS cluster mercury-staging.
+# GitOps: Flux pulls the merge itself; this workflow nudges Flux and then
+# verifies the result. ADO equivalent: a deployment stage targeting the `dev` environment.
+name: Deploy dev
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+    inputs:
+      reconcile:
+        description: Trigger a Flux reconcile before verifying
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - name: Azure OIDC variables configured?
+        id: check
+        env:
+          CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          if [[ -n "$CLIENT_ID" && -n "$TENANT_ID" && -n "$SUBSCRIPTION_ID" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Deploy dev skipped::AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID repo variables are not set (see docs/ci-cd-walkthrough.md)."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: reconcile + verify
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    uses: ./.github/workflows/verify.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      environment: dev
+      reconcile: ${{ github.event_name == 'push' || inputs.reconcile }}
+      expected_revision: ${{ github.sha }}
