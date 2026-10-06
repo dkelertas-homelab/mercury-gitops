@@ -1,0 +1,51 @@
+# Composite action: install pinned CLI tools, verifying release checksums.
+# ADO equivalent: a steps template (template: steps/setup-tools.yml).
+name: Setup GitOps tools
+description: Install pinned kustomize / kubeconform / gitleaks into the runner PATH
+inputs:
+  kustomize-version:
+    description: kustomize version (empty = skip)
+    default: ""
+  kubeconform-version:
+    description: kubeconform version (empty = skip)
+    default: ""
+  gitleaks-version:
+    description: gitleaks version (empty = skip)
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Install tools
+      shell: bash
+      env:
+        KUSTOMIZE_VERSION: ${{ inputs.kustomize-version }}
+        KUBECONFORM_VERSION: ${{ inputs.kubeconform-version }}
+        GITLEAKS_VERSION: ${{ inputs.gitleaks-version }}
+      run: |
+        set -euo pipefail
+        bin="$RUNNER_TEMP/bin"; mkdir -p "$bin"; cd "$RUNNER_TEMP"
+
+        # fetch <tarball-url> <checksums-url> <binary-name>
+        fetch() {
+          local url=$1 sums=$2 name=$3 file
+          file=$(basename "$url")
+          curl -fsSLo "$file" "$url"
+          curl -fsSL "$sums" | grep " ${file}\$" | sha256sum -c -
+          tar -xzf "$file" -C "$bin" "$name"
+        }
+
+        if [[ -n "$KUSTOMIZE_VERSION" ]]; then
+          base="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}"
+          fetch "$base/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" "$base/checksums.txt" kustomize
+        fi
+        if [[ -n "$KUBECONFORM_VERSION" ]]; then
+          base="https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}"
+          fetch "$base/kubeconform-linux-amd64.tar.gz" "$base/CHECKSUMS" kubeconform
+        fi
+        if [[ -n "$GITLEAKS_VERSION" ]]; then
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          fetch "$base/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt" gitleaks
+        fi
+
+        echo "$bin" >> "$GITHUB_PATH"
+        ls -1 "$bin"
